@@ -15,11 +15,17 @@ public final class JsonUtil {
             .serializeNulls()
             .create();
 
+    private static final Gson GSON_COMPACT = new Gson();
+
     private JsonUtil() {
     }
 
     public static String toJson(Object obj) {
         return GSON.toJson(obj);
+    }
+
+    public static String toJsonCompact(Object obj) {
+        return GSON_COMPACT.toJson(obj);
     }
 
     public static Map<String, Object> fromJsonToMap(String json) {

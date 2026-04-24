@@ -17,7 +17,7 @@ public final class ExecutionHistory {
 
     public static void save(ExecutionRecord record) {
         try {
-            String json = JsonUtil.toJson(record);
+            String json = JsonUtil.toJsonCompact(record);
             Files.writeString(
                 HISTORY_FILE,
                 json + "\n",

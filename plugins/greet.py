@@ -4,7 +4,7 @@ def get_metadata():
         "version": "1.0",
         "category": "text",
         "inputs": {
-            "name": "string:minlength=1,maxlength=50",
+            "name": "string:default=World,minlength=1,maxlength=50",
             "excited": "boolean:required=false,default=false"
         },
         "outputs": {"message": "string"}
