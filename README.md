@@ -30,46 +30,46 @@ CLI (interactive prompt)
     ExecutionHistory (saves result with job ID)
 ```
 
-**The flow:**
-1. Startup: all plugins loaded into registry
+**How it all fits together:**
+1. Startup: plugins get loaded into the registry
 2. User types a command
-3. JobManager creates a job, returns ID immediately
-4. PluginExecutor runs the plugin in background
-5. Result saved to history
-6. User checks status with `job <id>`
+3. JobManager kicks off a job, hands back an ID right away
+4. PluginExecutor does the actual work in the background
+5. Result gets saved to history
+6. User can check on it with `job <id>` whenever they want
 
 ## Design decisions
 
-- **Async job execution** - plugins run in a thread pool (4 threads), so multiple can run in parallel. You get a job ID back immediately.
-- **Execution history** - every execution (success or failure) is saved to `executions.json` with its job ID.
-- **Python via subprocess** - simpler than embedding Jython. Works with any Python version. If Python crashes, Java keeps going.
-- **Stateless plugins** - every run is independent, no memory between calls.
-- **30 second timeout** - plugins can't hang forever.
-- **Input validation** - type constraints like `int:min=0,max=100` are validated before execution.
+- **Async job execution** - plugins run in a thread pool (4 threads), so you can fire off multiple at once. You get a job ID back right away, no waiting around.
+- **Execution history** - every run (good or bad) gets saved to `executions.json` with its job ID. Nice for debugging.
+- **Python via subprocess** - way simpler than embedding Jython. Works with whatever Python you've got. If Python blows up, Java keeps on trucking.
+- **Stateless plugins** - each run starts fresh, no memory of past calls. Keeps things simple.
+- **30 second timeout** - plugins can't hog resources forever.
+- **Input validation** - constraints like `int:min=0,max=100` get checked before we even try to run.
 
 ## Running it
 
 ```bash
-# build
+# build it
 mvn clean package
 
-# start interactive mode
+# fire it up
 java -jar target/plugin-loader.jar
 ```
 
 ## Commands
 
-Once in the interactive prompt:
+Once you're in:
 
 ```
 help                          Show all commands
 list                          List all plugins
-list --category=math          List plugins in a category
-run-plugin <name> --k=v       Submit a job to run a plugin
-jobs                          List all jobs with status
-job <id>                      Get job details and result
-history                       Show execution history
-exit                          Quit
+list --category=math          Filter by category
+run-plugin <name> --k=v       Kick off a plugin job
+jobs                          See all jobs and their status
+job <id>                      Check on a specific job
+history                       Look at past executions
+exit                          Head out
 ```
 
 ## Example session
@@ -121,7 +121,7 @@ Bye!
 
 ### Python (in `plugins/`)
 
-**doubler.py**
+**doubler.py** - doubles a number, nothing fancy
 ```python
 def get_metadata():
     return {
@@ -136,7 +136,7 @@ def execute(inputs):
     return {"result": inputs["value"] * 2}
 ```
 
-**greet.py**
+**greet.py** - says howdy
 ```python
 def get_metadata():
     return {
@@ -160,7 +160,7 @@ def execute(inputs):
 
 ### Java (in `example-plugins/`)
 
-**MultiplierPlugin.java**
+**MultiplierPlugin.java** - multiplies two numbers
 ```java
 public class MultiplierPlugin implements Plugin {
     public String getName() { return "multiplier"; }
@@ -175,11 +175,11 @@ public class MultiplierPlugin implements Plugin {
 }
 ```
 
-Compile to a jar and drop in `plugins/`.
+Compile it to a jar and toss it in `plugins/`.
 
 ## Bonus: distributed execution
 
-To run plugins across multiple machines, I'd use a coordinator-worker setup:
+If we wanted to run plugins across multiple machines, I'd go with a coordinator-worker setup:
 
 ```
 ┌─────────────┐       ┌─────────────┐
@@ -189,19 +189,19 @@ To run plugins across multiple machines, I'd use a coordinator-worker setup:
 ```
 
 **How it works:**
-- Workers run an HTTP server with `/execute` (run a plugin) and `/health` (report status + available plugins)
-- Coordinator polls workers periodically to know who's alive and who has what
-- When a request comes in, coordinator picks a worker that has the plugin and forwards the request
-- If a worker times out, retry on a different one
+- Workers run an HTTP server with `/execute` (run a plugin) and `/health` (report what they've got)
+- Coordinator pings workers to know who's alive and who has what
+- Request comes in, coordinator picks a worker and forwards it
+- Worker times out? Try another one
 
-**Key changes to the code:**
-- `PluginExecutor.execute()` becomes an HTTP call instead of a local call
-- Add a `WorkerRegistry` to track available workers
-- Add request IDs for tracing and to prevent duplicate execution on retry
+**What we'd need to change:**
+- `PluginExecutor.execute()` becomes an HTTP call instead of local
+- Add a `WorkerRegistry` to keep track of workers
+- Request IDs for tracing and making sure retries don't run twice
 
-**The hard parts:**
-- Partial failure: what if 2 of 3 workers succeed? Return partial results or fail everything?
-- Idempotency: if we retry, make sure the plugin doesn't run twice (use request IDs)
-- No shared state: workers don't talk to each other, coordinator is the single source of truth
+**The tricky bits:**
+- Partial failure: 2 of 3 workers succeed, what do we do?
+- Idempotency: retries shouldn't double-run
+- No shared state between workers, coordinator's the boss
 
-Since plugins are stateless, any worker with the plugin can handle any request - makes load balancing simple.
+Since plugins are stateless, any worker with the plugin can handle any request. Makes load balancing real straightforward.
