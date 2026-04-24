@@ -25,7 +25,9 @@ public class PluginExecutor {
         Optional<Plugin> pluginOpt = registry.find(pluginName);
 
         if (pluginOpt.isEmpty()) {
-            return new ExecutionResult(pluginName, "Plugin not found: " + pluginName);
+            ExecutionResult result = new ExecutionResult(pluginName, "Plugin not found: " + pluginName);
+            ExecutionHistory.save(new ExecutionRecord(pluginName, rawParams, result));
+            return result;
         }
 
         Plugin plugin = pluginOpt.get();
@@ -34,7 +36,9 @@ public class PluginExecutor {
         try {
             coercedInputs = coerceInputs(plugin, rawParams);
         } catch (IllegalArgumentException e) {
-            return new ExecutionResult(pluginName, e.getMessage());
+            ExecutionResult result = new ExecutionResult(pluginName, e.getMessage());
+            ExecutionHistory.save(new ExecutionRecord(pluginName, rawParams, result));
+            return result;
         }
 
         List<String> validationErrors = validateInputConstraints(plugin, coercedInputs);
