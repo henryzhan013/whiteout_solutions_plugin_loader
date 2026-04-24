@@ -2,15 +2,16 @@ package pluginloader;
 
 import pluginloader.cli.CliParser;
 import pluginloader.cli.PluginPrinter;
+import pluginloader.core.JobManager;
 import pluginloader.core.LoaderVersion;
 import pluginloader.core.PluginExecutor;
 import pluginloader.core.PluginLoader;
 import pluginloader.core.PluginRegistry;
-import pluginloader.model.ExecutionResult;
+import pluginloader.model.Job;
 import pluginloader.util.ExecutionHistory;
-import pluginloader.util.JsonUtil;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Scanner;
 
 public class Main {
@@ -33,6 +34,7 @@ public class Main {
         PluginRegistry registry = new PluginRegistry();
         PluginLoader pluginLoader = new PluginLoader(registry);
         PluginExecutor executor = new PluginExecutor(registry);
+        JobManager jobManager = new JobManager(executor);
 
         pluginLoader.loadAll("plugins");
 
@@ -64,10 +66,11 @@ public class Main {
                 break;
             }
 
-            handleCommand(args, registry, executor);
+            handleCommand(args, registry, jobManager);
         }
 
         scanner.close();
+        jobManager.shutdown();
     }
 
     private static boolean isExitCommand(String[] args) {
@@ -75,7 +78,7 @@ public class Main {
         return cmd.equals("exit") || cmd.equals("quit") || cmd.equals("q");
     }
 
-    private static void handleCommand(String[] args, PluginRegistry registry, PluginExecutor executor) {
+    private static void handleCommand(String[] args, PluginRegistry registry, JobManager jobManager) {
         String cmd = args[0].toLowerCase();
 
         if (cmd.equals("help")) {
@@ -94,15 +97,36 @@ public class Main {
             return;
         }
 
+        if (CliParser.isJobsCommand(args)) {
+            PluginPrinter.printJobs(jobManager.getAllJobs());
+            return;
+        }
+
+        if (CliParser.isJobCommand(args)) {
+            try {
+                String jobId = CliParser.getJobId(args);
+                Optional<Job> job = jobManager.getJob(jobId);
+                if (job.isPresent()) {
+                    PluginPrinter.printJob(job.get());
+                } else {
+                    System.out.println("Job not found: " + jobId);
+                    System.out.println();
+                }
+            } catch (Exception e) {
+                System.err.println("Error: " + e.getMessage());
+                System.out.println();
+            }
+            return;
+        }
+
         if (CliParser.isRunPluginCommand(args)) {
             try {
                 String pluginName = CliParser.getPluginName(args);
                 Map<String, String> params = CliParser.parseParams(args);
 
-                ExecutionResult result = executor.execute(pluginName, params);
-                System.out.println();
-                System.out.println("Result:");
-                System.out.println(JsonUtil.toJson(result));
+                Job job = jobManager.submit(pluginName, params);
+                System.out.println("Job submitted: " + job.getId());
+                System.out.println("Use 'job " + job.getId() + "' to check status");
                 System.out.println();
             } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
@@ -121,7 +145,9 @@ public class Main {
         System.out.println("Commands:");
         System.out.println("  list                        List all plugins");
         System.out.println("  list --category=<name>      List plugins in category");
-        System.out.println("  run-plugin <name> --k=v     Run a plugin with parameters");
+        System.out.println("  run-plugin <name> --k=v     Submit a plugin job");
+        System.out.println("  jobs                        List all jobs");
+        System.out.println("  job <id>                    Get job status/result");
         System.out.println("  history                     Show execution history");
         System.out.println("  help                        Show this help");
         System.out.println("  exit                        Quit the program");

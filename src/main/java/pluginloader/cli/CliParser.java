@@ -7,6 +7,8 @@ public final class CliParser {
     private static final String RUN_PLUGIN_COMMAND = "run-plugin";
     private static final String LIST_COMMAND = "list";
     private static final String HISTORY_COMMAND = "history";
+    private static final String JOBS_COMMAND = "jobs";
+    private static final String JOB_COMMAND = "job";
 
     private CliParser() {
     }
@@ -21,6 +23,21 @@ public final class CliParser {
 
     public static boolean isHistoryCommand(String[] args) {
         return args.length >= 1 && HISTORY_COMMAND.equals(args[0]);
+    }
+
+    public static boolean isJobsCommand(String[] args) {
+        return args.length >= 1 && JOBS_COMMAND.equals(args[0]);
+    }
+
+    public static boolean isJobCommand(String[] args) {
+        return args.length >= 2 && JOB_COMMAND.equals(args[0]);
+    }
+
+    public static String getJobId(String[] args) {
+        if (args.length < 2) {
+            throw new IllegalArgumentException("Job ID not provided");
+        }
+        return args[1];
     }
 
     public static String getPluginName(String[] args) {

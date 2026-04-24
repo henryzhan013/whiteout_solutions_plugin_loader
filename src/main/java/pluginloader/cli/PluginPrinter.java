@@ -4,6 +4,8 @@ import pluginloader.core.LoaderVersion;
 import pluginloader.core.Plugin;
 import pluginloader.core.PluginRegistry;
 import pluginloader.model.ExecutionRecord;
+import pluginloader.model.Job;
+import pluginloader.util.JsonUtil;
 
 import java.util.List;
 import java.util.Map;
@@ -98,5 +100,37 @@ public final class PluginPrinter {
             }
             System.out.println();
         }
+    }
+
+    public static void printJobs(List<Job> jobs) {
+        if (jobs.isEmpty()) {
+            System.out.println("No jobs.");
+            return;
+        }
+
+        System.out.println("Jobs (" + jobs.size() + "):");
+        System.out.println();
+
+        for (Job job : jobs) {
+            System.out.println("  " + job.getId() + "  " + job.getStatus() + "  " + job.getPluginName());
+        }
+        System.out.println();
+    }
+
+    public static void printJob(Job job) {
+        System.out.println();
+        System.out.println("Job: " + job.getId());
+        System.out.println("Plugin: " + job.getPluginName());
+        System.out.println("Inputs: " + job.getInputs());
+        System.out.println("Status: " + job.getStatus());
+        System.out.println("Created: " + job.getCreatedAt());
+
+        if (job.isDone()) {
+            System.out.println("Completed: " + job.getCompletedAt());
+            System.out.println();
+            System.out.println("Result:");
+            System.out.println(JsonUtil.toJson(job.getResult()));
+        }
+        System.out.println();
     }
 }
