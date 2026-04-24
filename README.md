@@ -4,35 +4,39 @@ A Java app that loads and runs plugins written in Java or Python. Drop a `.jar` 
 
 ## Architecture
 
+**On startup:**
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Interactive CLI                   │
-│              (REPL loop, parses commands)           │
-└─────────────────────────┬───────────────────────────┘
-                          │
-┌─────────────────────────▼───────────────────────────┐
-│                    JobManager                       │
-│         (async execution, thread pool)              │
-└─────────────────────────┬───────────────────────────┘
-                          │
-┌─────────────────────────▼───────────────────────────┐
-│                      Core                           │
-│  PluginLoader → PluginRegistry → PluginExecutor    │
-│  (finds plugins)  (stores them)   (runs them)      │
-└────────────┬────────────────────────────┬───────────┘
-             │                            │
-┌────────────▼──────────┐    ┌────────────▼───────────┐
-│   JavaPluginLoader    │    │   PythonPluginLoader   │
-│ (URLClassLoader)      │    │ (subprocess + JSON)    │
-└───────────────────────┘    └────────────────────────┘
+PluginLoader scans plugins/ folder
+        │
+        ├──▶ JavaPluginLoader ──▶ loads .jar files
+        │
+        └──▶ PythonPluginLoader ──▶ loads .py files
+                    │
+                    ▼
+            PluginRegistry (stores all plugins)
+```
+
+**On each command:**
+```
+CLI (interactive prompt)
+        │
+        ▼
+    JobManager (creates async job, runs in thread pool)
+        │
+        ▼
+    PluginExecutor (finds plugin in registry, validates, executes)
+        │
+        ▼
+    ExecutionHistory (saves result with job ID)
 ```
 
 **The flow:**
-1. CLI receives a command
-2. JobManager creates an async job
-3. PluginExecutor validates inputs and runs the plugin
-4. Result is stored in history with job ID
-5. User can check job status anytime
+1. Startup: all plugins loaded into registry
+2. User types a command
+3. JobManager creates a job, returns ID immediately
+4. PluginExecutor runs the plugin in background
+5. Result saved to history
+6. User checks status with `job <id>`
 
 ## Design decisions
 
