@@ -11,11 +11,12 @@ import pluginloader.util.ExecutionHistory;
 import pluginloader.util.JsonUtil;
 
 import java.util.Map;
+import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
         try {
-            run(args);
+            run();
         } catch (Exception e) {
             System.err.println();
             System.err.println("Fatal error: " + e.getMessage());
@@ -25,7 +26,7 @@ public class Main {
         }
     }
 
-    private static void run(String[] args) {
+    private static void run() {
         System.out.println("=== Polyglot Plugin Loader v" + LoaderVersion.VERSION + " ===");
         System.out.println();
 
@@ -38,10 +39,47 @@ public class Main {
         System.out.println();
         System.out.println("Loaded " + registry.size() + " plugin(s)");
         System.out.println();
+        System.out.println("Type 'help' for commands, 'exit' to quit.");
+        System.out.println();
 
-        if (args.length == 0) {
-            PluginPrinter.printUsage();
-            PluginPrinter.listPlugins(registry, null);
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+            System.out.print("> ");
+
+            if (!scanner.hasNextLine()) {
+                break;
+            }
+
+            String line = scanner.nextLine().trim();
+
+            if (line.isEmpty()) {
+                continue;
+            }
+
+            String[] args = line.split("\\s+");
+
+            if (isExitCommand(args)) {
+                System.out.println("Bye!");
+                break;
+            }
+
+            handleCommand(args, registry, executor);
+        }
+
+        scanner.close();
+    }
+
+    private static boolean isExitCommand(String[] args) {
+        String cmd = args[0].toLowerCase();
+        return cmd.equals("exit") || cmd.equals("quit") || cmd.equals("q");
+    }
+
+    private static void handleCommand(String[] args, PluginRegistry registry, PluginExecutor executor) {
+        String cmd = args[0].toLowerCase();
+
+        if (cmd.equals("help")) {
+            printInteractiveHelp();
             return;
         }
 
@@ -56,18 +94,37 @@ public class Main {
             return;
         }
 
-        if (!CliParser.isRunPluginCommand(args)) {
-            System.err.println("Error: Unknown command. Expected 'run-plugin', 'list', or 'history'");
-            PluginPrinter.printUsage();
+        if (CliParser.isRunPluginCommand(args)) {
+            try {
+                String pluginName = CliParser.getPluginName(args);
+                Map<String, String> params = CliParser.parseParams(args);
+
+                ExecutionResult result = executor.execute(pluginName, params);
+                System.out.println();
+                System.out.println("Result:");
+                System.out.println(JsonUtil.toJson(result));
+                System.out.println();
+            } catch (Exception e) {
+                System.err.println("Error: " + e.getMessage());
+                System.out.println();
+            }
             return;
         }
 
-        String pluginName = CliParser.getPluginName(args);
-        Map<String, String> params = CliParser.parseParams(args);
-
-        ExecutionResult result = executor.execute(pluginName, params);
+        System.err.println("Unknown command: " + cmd);
+        System.out.println("Type 'help' for available commands.");
         System.out.println();
-        System.out.println("Result:");
-        System.out.println(JsonUtil.toJson(result));
+    }
+
+    private static void printInteractiveHelp() {
+        System.out.println();
+        System.out.println("Commands:");
+        System.out.println("  list                        List all plugins");
+        System.out.println("  list --category=<name>      List plugins in category");
+        System.out.println("  run-plugin <name> --k=v     Run a plugin with parameters");
+        System.out.println("  history                     Show execution history");
+        System.out.println("  help                        Show this help");
+        System.out.println("  exit                        Quit the program");
+        System.out.println();
     }
 }
