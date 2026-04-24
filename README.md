@@ -6,8 +6,13 @@ A Java app that loads and runs plugins written in Java or Python. Drop a `.jar` 
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                      CLI                            │
-│            (parses commands, prints output)         │
+│                   Interactive CLI                   │
+│              (REPL loop, parses commands)           │
+└─────────────────────────┬───────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────┐
+│                    JobManager                       │
+│         (async execution, thread pool)              │
 └─────────────────────────┬───────────────────────────┘
                           │
 ┌─────────────────────────▼───────────────────────────┐
@@ -22,16 +27,91 @@ A Java app that loads and runs plugins written in Java or Python. Drop a `.jar` 
 └───────────────────────┘    └────────────────────────┘
 ```
 
-**The flow:** CLI receives a command → loader finds plugins in `plugins/` folder → registry stores them → executor validates inputs and runs the plugin → result comes back as JSON.
-
-**Java plugins** get loaded via `URLClassLoader` and reflection. **Python plugins** run as subprocesses - we pass inputs as JSON, they return outputs as JSON.
+**The flow:**
+1. CLI receives a command
+2. JobManager creates an async job
+3. PluginExecutor validates inputs and runs the plugin
+4. Result is stored in history with job ID
+5. User can check job status anytime
 
 ## Design decisions
 
+- **Async job execution** - plugins run in a thread pool (4 threads), so multiple can run in parallel. You get a job ID back immediately.
+- **Execution history** - every execution (success or failure) is saved to `executions.json` with its job ID.
 - **Python via subprocess** - simpler than embedding Jython. Works with any Python version. If Python crashes, Java keeps going.
-- **Stateless plugins** - every run is independent, no memory between calls. Easier to reason about.
+- **Stateless plugins** - every run is independent, no memory between calls.
 - **30 second timeout** - plugins can't hang forever.
-- **JSON everywhere** - inputs, outputs, errors. Works across languages.
+- **Input validation** - type constraints like `int:min=0,max=100` are validated before execution.
+
+## Running it
+
+```bash
+# build
+mvn clean package
+
+# start interactive mode
+java -jar target/plugin-loader.jar
+```
+
+## Commands
+
+Once in the interactive prompt:
+
+```
+help                          Show all commands
+list                          List all plugins
+list --category=math          List plugins in a category
+run-plugin <name> --k=v       Submit a job to run a plugin
+jobs                          List all jobs with status
+job <id>                      Get job details and result
+history                       Show execution history
+exit                          Quit
+```
+
+## Example session
+
+```
+> list
+Available plugins:
+
+  [math]
+    Name: doubler
+    Inputs: {value=int:min=0,max=1000}
+
+  [text]
+    Name: greet
+    Inputs: {name=string:default=World}
+
+> run-plugin doubler --value=5
+Job submitted: a1b2c3d4
+Use 'job a1b2c3d4' to check status
+
+> jobs
+Jobs (1):
+  a1b2c3d4  COMPLETED  doubler
+
+> job a1b2c3d4
+Job: a1b2c3d4
+Plugin: doubler
+Status: COMPLETED
+Result:
+{
+  "status": "SUCCESS",
+  "outputs": {"result": 10}
+}
+
+> history
+Execution history (1 records):
+
+1. [a1b2c3d4] 2024-04-24T19:30:00Z
+   Plugin: doubler
+   Inputs: {value=5}
+   Status: success
+   Output: {result=10}
+
+> exit
+Bye!
+```
 
 ## Example plugins
 
@@ -59,12 +139,19 @@ def get_metadata():
         "name": "greet",
         "version": "1.0",
         "category": "text",
-        "inputs": {"name": "string:default=World"},
+        "inputs": {
+            "name": "string:default=World,minlength=1,maxlength=50",
+            "excited": "boolean:required=false,default=false"
+        },
         "outputs": {"message": "string"}
     }
 
 def execute(inputs):
-    return {"message": f"Hello, {inputs['name']}!"}
+    name = inputs["name"]
+    excited = inputs.get("excited", False)
+    if excited:
+        return {"message": f"Hello, {name}!!!"}
+    return {"message": f"Hello, {name}."}
 ```
 
 ### Java (in `example-plugins/`)
@@ -85,28 +172,6 @@ public class MultiplierPlugin implements Plugin {
 ```
 
 Compile to a jar and drop in `plugins/`.
-
-## Running it
-
-```bash
-# build
-mvn clean package
-
-# list plugins
-java -jar target/polyglot-plugin-loader-1.0-SNAPSHOT-jar-with-dependencies.jar list
-
-# run a plugin
-java -jar target/polyglot-plugin-loader-1.0-SNAPSHOT-jar-with-dependencies.jar run-plugin doubler --value 5
-```
-
-Output:
-```json
-{
-  "status": "success",
-  "plugin": "doubler",
-  "output": {"result": 10}
-}
-```
 
 ## Bonus: distributed execution
 
