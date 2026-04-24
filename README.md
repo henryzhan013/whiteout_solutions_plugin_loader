@@ -11,31 +11,65 @@ CLI → PluginLoader → finds .jar and .py files → PluginExecutor → runs th
 - Java plugins: loaded via `URLClassLoader` at runtime
 - Python plugins: executed as subprocesses, communicate via JSON
 
-## Project structure
+## Architecture - the whole shebang
 
-```
-src/main/java/pluginloader/
-├── cli/          # command line stuff
-├── core/         # plugin interface, registry, loader, executor
-├── loader/       # java and python specific loaders
-├── model/        # data classes
-├── util/         # json, logging, python runner
-└── validation/   # input validation
-```
+Alright, let me walk y'all through how this thing is put together.
 
-## Why these decisions?
+### Core stuff (`pluginloader.core`)
 
-**Python via subprocess instead of embedding Jython/GraalPython**
-- way simpler
-- works with any python version you have installed
-- if python crashes, java keeps running
+**Plugin.java** - This here's the interface every plugin's gotta follow. Got 5 main methods: `getName()`, `getVersion()`, `getInputs()`, `getOutputs()`, and `execute()`. Don't matter if it's Java or Python, they all gotta act like this interface.
 
-**Type constraints like `int:min=0,max=100`**
-- validates inputs before running the plugin
-- gives clear error messages when something's wrong
+**PluginRegistry.java** - Think of it like a phonebook for plugins. When we load 'em up, they get registered here. Need to find a plugin by name? Ask the registry. Want all the math plugins? Registry handles that too.
 
-**30 second timeout on python**
-- plugins can't hang forever and freeze the app
+**PluginLoader.java** - This ol' boy scans the `plugins/` folder, figures out what's a `.jar` and what's a `.py`, and hands 'em off to the right loader. It's the foreman, delegates the real work.
+
+**PluginExecutor.java** - When you wanna actually run a plugin, this is your guy. Takes the plugin name and inputs, validates everything's kosher, runs it, and wraps up the result nice and pretty.
+
+### Loaders (`pluginloader.loader`)
+
+**JavaPluginLoader.java** - Loads up `.jar` files using `URLClassLoader`. Does some reflection magic to find classes that implement our Plugin interface.
+
+**PythonPluginLoader.java** - For `.py` files. Doesn't actually run Python itself, just creates a wrapper.
+
+**PythonPlugin.java** - The wrapper for Python plugins. When you call `execute()`, it fires up a Python subprocess, passes the inputs as JSON, and reads back the result.
+
+### Models (`pluginloader.model`)
+
+**ExecutionResult.java** - Just a container for what comes back when you run a plugin. Got a status (success/error), the plugin name, and the output.
+
+**PluginMetadata.java** - Holds info about a plugin - name, version, category, what inputs it takes, what outputs it gives.
+
+**PluginType.java** - Enum for the types we support: int, float, string, boolean. Knows how to convert strings to these types.
+
+### Validation (`pluginloader.validation`)
+
+**InputConstraint.java** - Parses stuff like `int:min=0,max=100` and validates inputs against it. Makes sure you ain't passing garbage to a plugin.
+
+**PluginValidator.java** - Checks that a plugin's metadata makes sense before we try to run it.
+
+### Utilities (`pluginloader.util`)
+
+**JsonUtil.java** - Wrapper around Gson. Converts objects to JSON and back. Nothing fancy.
+
+**PythonRunner.java** - Actually runs Python subprocesses. Handles the timeout (30 seconds, then we kill it), reads stdout, all that mess.
+
+**AppLogger.java** - Simple logging helper. Prints stuff to console with timestamps.
+
+### CLI (`pluginloader.cli`)
+
+**CliParser.java** - Figures out what command you're running (`list`, `run-plugin`) and pulls out the arguments.
+
+**PluginPrinter.java** - Formats the output nice and pretty for the terminal.
+
+## Design decisions
+
+**Python via subprocess** - Could've used Jython or GraalPython, but subprocess is way simpler. Works with whatever Python you got installed. If Python crashes, Java keeps truckin'.
+
+**Stateless plugins** - Every run is independent. Plugin don't remember nothing from last time. Keeps things simple.
+
+**30 second timeout** - Plugins can't hang forever. Take too long, we pull the plug.
+
+**JSON everywhere** - Inputs, outputs, errors - all JSON. Easy to work with, works across languages.
 
 ## Example plugins
 
