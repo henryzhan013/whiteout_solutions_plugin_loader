@@ -1,7 +1,9 @@
 package pluginloader.core;
 
+import pluginloader.model.ExecutionRecord;
 import pluginloader.model.ExecutionResult;
 import pluginloader.model.Job;
+import pluginloader.util.ExecutionHistory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +47,14 @@ public class JobManager {
             job.setStatus(Job.Status.FAILED);
             job.setResult(new ExecutionResult(job.getPluginName(), e.getMessage()));
         }
+
+        // Save to history
+        ExecutionHistory.save(new ExecutionRecord(
+            job.getId(),
+            job.getPluginName(),
+            job.getInputs(),
+            job.getResult()
+        ));
     }
 
     public Optional<Job> getJob(String id) {

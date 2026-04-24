@@ -1,10 +1,8 @@
 package pluginloader.core;
 
-import pluginloader.model.ExecutionRecord;
 import pluginloader.model.ExecutionResult;
 import pluginloader.model.PluginType;
 import pluginloader.util.AppLogger;
-import pluginloader.util.ExecutionHistory;
 import pluginloader.validation.InputConstraint;
 
 import java.util.ArrayList;
@@ -25,9 +23,7 @@ public class PluginExecutor {
         Optional<Plugin> pluginOpt = registry.find(pluginName);
 
         if (pluginOpt.isEmpty()) {
-            ExecutionResult result = new ExecutionResult(pluginName, "Plugin not found: " + pluginName);
-            ExecutionHistory.save(new ExecutionRecord(pluginName, rawParams, result));
-            return result;
+            return new ExecutionResult(pluginName, "Plugin not found: " + pluginName);
         }
 
         Plugin plugin = pluginOpt.get();
@@ -36,21 +32,15 @@ public class PluginExecutor {
         try {
             coercedInputs = coerceInputs(plugin, rawParams);
         } catch (IllegalArgumentException e) {
-            ExecutionResult result = new ExecutionResult(pluginName, e.getMessage());
-            ExecutionHistory.save(new ExecutionRecord(pluginName, rawParams, result));
-            return result;
+            return new ExecutionResult(pluginName, e.getMessage());
         }
 
         List<String> validationErrors = validateInputConstraints(plugin, coercedInputs);
         if (!validationErrors.isEmpty()) {
-            ExecutionResult result = new ExecutionResult(pluginName, String.join("; ", validationErrors));
-            ExecutionHistory.save(new ExecutionRecord(pluginName, rawParams, result));
-            return result;
+            return new ExecutionResult(pluginName, String.join("; ", validationErrors));
         }
 
-        ExecutionResult result = executePlugin(plugin, coercedInputs);
-        ExecutionHistory.save(new ExecutionRecord(pluginName, rawParams, result));
-        return result;
+        return executePlugin(plugin, coercedInputs);
     }
 
     private Map<String, Object> coerceInputs(Plugin plugin, Map<String, String> rawParams) {

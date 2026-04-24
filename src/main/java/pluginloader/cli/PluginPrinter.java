@@ -89,7 +89,7 @@ public final class PluginPrinter {
 
         for (int i = 0; i < records.size(); i++) {
             ExecutionRecord r = records.get(i);
-            System.out.println((i + 1) + ". " + r.getTimestamp());
+            System.out.println((i + 1) + ". [" + r.getJobId() + "] " + r.getTimestamp());
             System.out.println("   Plugin: " + r.getPlugin());
             System.out.println("   Inputs: " + r.getInputs());
             System.out.println("   Status: " + r.getStatus());

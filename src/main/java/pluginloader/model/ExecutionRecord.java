@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Map;
 
 public class ExecutionRecord {
+    private final String jobId;
     private final String timestamp;
     private final String plugin;
     private final Map<String, String> inputs;
@@ -11,13 +12,18 @@ public class ExecutionRecord {
     private final Map<String, Object> output;
     private final String error;
 
-    public ExecutionRecord(String plugin, Map<String, String> inputs, ExecutionResult result) {
+    public ExecutionRecord(String jobId, String plugin, Map<String, String> inputs, ExecutionResult result) {
+        this.jobId = jobId;
         this.timestamp = Instant.now().toString();
         this.plugin = plugin;
         this.inputs = inputs;
         this.status = result.getStatus().name().toLowerCase();
         this.output = result.getOutputs();
         this.error = result.getErrorMessage();
+    }
+
+    public String getJobId() {
+        return jobId;
     }
 
     public String getTimestamp() {
