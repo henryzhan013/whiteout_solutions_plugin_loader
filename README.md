@@ -113,9 +113,26 @@ Output:
 To run plugins across multiple machines, I'd use a coordinator-worker setup:
 
 ```
-Coordinator (routes requests) → Workers (run plugins)
+┌─────────────┐       ┌─────────────┐
+│ Coordinator │──────▶│  Worker A   │
+│  (router)   │──────▶│  Worker B   │
+└─────────────┘       └─────────────┘
 ```
 
-Workers expose `/execute` and `/health` endpoints. Coordinator tracks which worker has which plugins, adds timeouts and retries.
+**How it works:**
+- Workers run an HTTP server with `/execute` (run a plugin) and `/health` (report status + available plugins)
+- Coordinator polls workers periodically to know who's alive and who has what
+- When a request comes in, coordinator picks a worker that has the plugin and forwards the request
+- If a worker times out, retry on a different one
 
-The tricky parts: handling partial failures and making retries idempotent. For a stateless system like this, prioritize availability - any worker with the plugin can handle any request.
+**Key changes to the code:**
+- `PluginExecutor.execute()` becomes an HTTP call instead of a local call
+- Add a `WorkerRegistry` to track available workers
+- Add request IDs for tracing and to prevent duplicate execution on retry
+
+**The hard parts:**
+- Partial failure: what if 2 of 3 workers succeed? Return partial results or fail everything?
+- Idempotency: if we retry, make sure the plugin doesn't run twice (use request IDs)
+- No shared state: workers don't talk to each other, coordinator is the single source of truth
+
+Since plugins are stateless, any worker with the plugin can handle any request - makes load balancing simple.
