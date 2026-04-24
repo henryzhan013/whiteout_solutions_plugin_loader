@@ -6,6 +6,7 @@ import java.util.Map;
 public final class CliParser {
     private static final String RUN_PLUGIN_COMMAND = "run-plugin";
     private static final String LIST_COMMAND = "list";
+    private static final String HISTORY_COMMAND = "history";
 
     private CliParser() {
     }
@@ -16,6 +17,10 @@ public final class CliParser {
 
     public static boolean isListCommand(String[] args) {
         return args.length >= 1 && LIST_COMMAND.equals(args[0]);
+    }
+
+    public static boolean isHistoryCommand(String[] args) {
+        return args.length >= 1 && HISTORY_COMMAND.equals(args[0]);
     }
 
     public static String getPluginName(String[] args) {

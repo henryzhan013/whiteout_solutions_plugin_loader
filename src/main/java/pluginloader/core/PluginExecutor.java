@@ -1,8 +1,10 @@
 package pluginloader.core;
 
+import pluginloader.model.ExecutionRecord;
 import pluginloader.model.ExecutionResult;
 import pluginloader.model.PluginType;
 import pluginloader.util.AppLogger;
+import pluginloader.util.ExecutionHistory;
 import pluginloader.validation.InputConstraint;
 
 import java.util.ArrayList;
@@ -37,10 +39,14 @@ public class PluginExecutor {
 
         List<String> validationErrors = validateInputConstraints(plugin, coercedInputs);
         if (!validationErrors.isEmpty()) {
-            return new ExecutionResult(pluginName, String.join("; ", validationErrors));
+            ExecutionResult result = new ExecutionResult(pluginName, String.join("; ", validationErrors));
+            ExecutionHistory.save(new ExecutionRecord(pluginName, rawParams, result));
+            return result;
         }
 
-        return executePlugin(plugin, coercedInputs);
+        ExecutionResult result = executePlugin(plugin, coercedInputs);
+        ExecutionHistory.save(new ExecutionRecord(pluginName, rawParams, result));
+        return result;
     }
 
     private Map<String, Object> coerceInputs(Plugin plugin, Map<String, String> rawParams) {

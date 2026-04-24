@@ -3,6 +3,7 @@ package pluginloader.cli;
 import pluginloader.core.LoaderVersion;
 import pluginloader.core.Plugin;
 import pluginloader.core.PluginRegistry;
+import pluginloader.model.ExecutionRecord;
 
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,9 @@ public final class PluginPrinter {
         System.out.println();
         System.out.println("  java -jar plugin-loader.jar run-plugin <name> --key=value ...");
         System.out.println("      Executes a plugin with the given parameters");
+        System.out.println();
+        System.out.println("  java -jar plugin-loader.jar history");
+        System.out.println("      Shows execution history");
         System.out.println();
     }
 
@@ -70,5 +74,29 @@ public final class PluginPrinter {
             System.out.println("    Requires loader: >=" + plugin.getMinLoaderVersion());
         }
         System.out.println();
+    }
+
+    public static void printHistory(List<ExecutionRecord> records) {
+        if (records.isEmpty()) {
+            System.out.println("No execution history.");
+            return;
+        }
+
+        System.out.println("Execution history (" + records.size() + " records):");
+        System.out.println();
+
+        for (int i = 0; i < records.size(); i++) {
+            ExecutionRecord r = records.get(i);
+            System.out.println((i + 1) + ". " + r.getTimestamp());
+            System.out.println("   Plugin: " + r.getPlugin());
+            System.out.println("   Inputs: " + r.getInputs());
+            System.out.println("   Status: " + r.getStatus());
+            if ("success".equals(r.getStatus())) {
+                System.out.println("   Output: " + r.getOutput());
+            } else {
+                System.out.println("   Error: " + r.getError());
+            }
+            System.out.println();
+        }
     }
 }

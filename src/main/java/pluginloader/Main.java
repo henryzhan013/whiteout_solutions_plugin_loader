@@ -7,6 +7,7 @@ import pluginloader.core.PluginExecutor;
 import pluginloader.core.PluginLoader;
 import pluginloader.core.PluginRegistry;
 import pluginloader.model.ExecutionResult;
+import pluginloader.util.ExecutionHistory;
 import pluginloader.util.JsonUtil;
 
 import java.util.Map;
@@ -50,8 +51,13 @@ public class Main {
             return;
         }
 
+        if (CliParser.isHistoryCommand(args)) {
+            PluginPrinter.printHistory(ExecutionHistory.load());
+            return;
+        }
+
         if (!CliParser.isRunPluginCommand(args)) {
-            System.err.println("Error: Unknown command. Expected 'run-plugin' or 'list'");
+            System.err.println("Error: Unknown command. Expected 'run-plugin', 'list', or 'history'");
             PluginPrinter.printUsage();
             return;
         }
