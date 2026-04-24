@@ -23,6 +23,7 @@ public class PluginExecutor {
         Optional<Plugin> pluginOpt = registry.find(pluginName);
 
         if (pluginOpt.isEmpty()) {
+            logger.error("Execution failed: Plugin not found: " + pluginName);
             return new ExecutionResult(pluginName, "Plugin not found: " + pluginName);
         }
 
@@ -32,12 +33,15 @@ public class PluginExecutor {
         try {
             coercedInputs = coerceInputs(plugin, rawParams);
         } catch (IllegalArgumentException e) {
+            logger.error("Execution failed for plugin " + pluginName + ": " + e.getMessage());
             return new ExecutionResult(pluginName, e.getMessage());
         }
 
         List<String> validationErrors = validateInputConstraints(plugin, coercedInputs);
         if (!validationErrors.isEmpty()) {
-            return new ExecutionResult(pluginName, String.join("; ", validationErrors));
+            String errorMsg = String.join("; ", validationErrors);
+            logger.error("Execution failed for plugin " + pluginName + ": " + errorMsg);
+            return new ExecutionResult(pluginName, errorMsg);
         }
 
         return executePlugin(plugin, coercedInputs);
