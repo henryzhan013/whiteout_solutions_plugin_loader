@@ -10,9 +10,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class PluginExecutor {
     private static final AppLogger logger = new AppLogger(PluginExecutor.class);
+    private static final int TIMEOUT_SECONDS = 30;
     private final PluginRegistry registry;
 
     public PluginExecutor(PluginRegistry registry) {
@@ -107,16 +114,26 @@ public class PluginExecutor {
         logger.info("Executing plugin: " + plugin.getName());
         long startTime = System.currentTimeMillis();
 
+        ExecutorService timeoutExecutor = Executors.newSingleThreadExecutor();
         try {
-            Map<String, Object> outputs = plugin.execute(inputs);
+            Callable<Map<String, Object>> task = () -> plugin.execute(inputs);
+            Future<Map<String, Object>> future = timeoutExecutor.submit(task);
+
+            Map<String, Object> outputs = future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             long duration = System.currentTimeMillis() - startTime;
 
             logger.info("Execution completed in " + duration + "ms");
 
             return new ExecutionResult(plugin.getName(), plugin.getVersion(), outputs, duration);
+        } catch (TimeoutException e) {
+            logger.error("Execution timed out for plugin: " + plugin.getName());
+            return new ExecutionResult(plugin.getName(), "Plugin execution timed out after " + TIMEOUT_SECONDS + " seconds");
         } catch (Exception e) {
             logger.error("Execution failed for plugin: " + plugin.getName(), e);
-            return new ExecutionResult(plugin.getName(), e.getMessage());
+            String message = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+            return new ExecutionResult(plugin.getName(), message);
+        } finally {
+            timeoutExecutor.shutdownNow();
         }
     }
 }
